@@ -9,7 +9,7 @@ Example usage:
 
 .. code-block:: bash
 
-    python scripts/inference/predict_embeddings.py configs/predict.yaml [--key=value ...]
+    python predict_embeddings.py configs/predict.yaml [--key=value ...]
 """
 
 import logging
@@ -38,7 +38,6 @@ def predict_embeddings(cfg: DictConfig) -> None:
 
     # retrieve configuration parameters
     model_name = cfg.get("model_name", "tx1")
-    cell_type_key = cfg.data.cell_type_key
     gene_id_key = cfg.data.gene_id_key
     return_gene_embeddings = cfg.predict.get("return_gene_embeddings", False)
     batch_size = cfg.predict.get("batch_size", 64)
@@ -75,7 +74,6 @@ def predict_embeddings(cfg: DictConfig) -> None:
 
     log.info("Loading AnnData file…")
     adata = sc.read_h5ad(cfg.paths.adata_input)
-    adata = adata[~adata.obs[cell_type_key].isna(), :]
 
     adata.var["id_in_vocab"] = [
         vocab[gene] if gene in vocab else -1 for gene in adata.var[gene_id_key]
@@ -191,7 +189,6 @@ if __name__ == "__main__":
     cfg = om.load(sys.argv[1])
 
     # Merge with command line arguments
-
     cli_args = []
     for arg in sys.argv[num_mand_args:]:
         # Convert --key=value to key=value format for OmegaConf
