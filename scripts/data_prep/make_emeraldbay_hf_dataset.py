@@ -18,8 +18,6 @@ import json
 import logging
 import math
 import os
-from pathlib import Path
-
 import datasets
 import numpy as np
 import pandas as pd
@@ -34,14 +32,18 @@ log = logging.getLogger(__name__)
 
 # ── Paths ───────────────────────────────────────────────────────────────────
 ADATA_PATH = "/nvme-shared/Data/seqrun_26_27_merged/5/qc/generic/adata_clean.h5ad.gz"
-GROWTH_RATE_PATH = "/nvme-shared/Data/seqrun_26_27_merged/5/qc/generic/growth_rate_long.parquet"
-CELL_LINE_MAPPING_PATH = "/home/shreshth/Barotaxis2/vector_diffusion/scripts/data_prep/cell_gen_ft_a97.csv"
+GROWTH_RATE_PATH = (
+    "/nvme-shared/Data/seqrun_26_27_merged/5/qc/generic/growth_rate_long.parquet"
+)
+CELL_LINE_MAPPING_PATH = (
+    "/home/shreshth/Barotaxis2/vector_diffusion/scripts/data_prep/cell_gen_ft_a97.csv"
+)
 VOCAB_JSON_PATH = "/tmp/vevo_v2_vocab.json"
 OUTPUT_ROOT = "/nvme-shared/Data/EmeraldBay_HF"
 
 
-
 # ── Step 1: Build extended vocabulary ───────────────────────────────────────
+
 
 def build_extended_vocab(adata_var, vocab_json_path):
     """Build an extended vocabulary that includes all EmeraldBay genes.
@@ -58,17 +60,27 @@ def build_extended_vocab(adata_var, vocab_json_path):
         base_vocab = json.load(f)
 
     # Separate real tokens from junk/special
-    special_tokens = {k: v for k, v in base_vocab.items() if k.startswith("<") and "junk" not in k}
+    special_tokens = {
+        k: v for k, v in base_vocab.items() if k.startswith("<") and "junk" not in k
+    }
     junk_tokens = {k: v for k, v in base_vocab.items() if "junk" in k}
-    gene_tokens = {k: v for k, v in base_vocab.items() if not k.startswith("<") and "junk" not in k}
+    gene_tokens = {
+        k: v for k, v in base_vocab.items() if not k.startswith("<") and "junk" not in k
+    }
 
-    log.info(f"Base vocab: {len(special_tokens)} special, {len(gene_tokens)} genes, {len(junk_tokens)} junk")
+    log.info(
+        f"Base vocab: {len(special_tokens)} special, {len(gene_tokens)} genes, {len(junk_tokens)} junk",
+    )
 
     # Find genes in EmeraldBay that are NOT in the existing vocab
     eb_genes = list(zip(adata_var.index, adata_var["gene_id"].values))
     existing_ensembl = set(gene_tokens.keys())
-    new_genes = [(symbol, eid) for symbol, eid in eb_genes if eid not in existing_ensembl]
-    log.info(f"EmeraldBay genes: {len(eb_genes)}, already in vocab: {len(eb_genes) - len(new_genes)}, new: {len(new_genes)}")
+    new_genes = [
+        (symbol, eid) for symbol, eid in eb_genes if eid not in existing_ensembl
+    ]
+    log.info(
+        f"EmeraldBay genes: {len(eb_genes)}, already in vocab: {len(eb_genes) - len(new_genes)}, new: {len(new_genes)}",
+    )
 
     # Sort junk tokens by token_id to know which IDs to reclaim
     junk_sorted = sorted(junk_tokens.items(), key=lambda x: x[1])
@@ -110,16 +122,19 @@ def build_extended_vocab(adata_var, vocab_json_path):
         if k.startswith("<"):
             continue
         symbol = ensembl_to_symbol.get(k, k)
-        gene_metadata_rows.append({
-            "gene_symbol": symbol,
-            "ensembl_id": k,
-            "token_id": v,
-        })
+        gene_metadata_rows.append(
+            {
+                "gene_symbol": symbol,
+                "ensembl_id": k,
+                "token_id": v,
+            },
+        )
 
     return extended_vocab, gene_metadata_rows
 
 
 # ── Step 2: Generate expression_data ────────────────────────────────────────
+
 
 def expression_data_generator(adata_path, extended_vocab, cell_line_map):
     """Generator yielding one dict per cell for expression_data config."""
@@ -130,13 +145,13 @@ def expression_data_generator(adata_path, extended_vocab, cell_line_map):
     # Map genes to token IDs
     adata.var.reset_index(inplace=True)
     gene_col = "gene_id"
-    adata.var["token_id"] = [
-        extended_vocab.get(g, -1) for g in adata.var[gene_col]
-    ]
+    adata.var["token_id"] = [extended_vocab.get(g, -1) for g in adata.var[gene_col]]
     # Keep ALL genes (should be 100% coverage with extended vocab)
     n_unmapped = (adata.var["token_id"] == -1).sum()
     if n_unmapped > 0:
-        log.warning(f"{n_unmapped} genes not in extended vocab — this should not happen!")
+        log.warning(
+            f"{n_unmapped} genes not in extended vocab — this should not happen!",
+        )
     adata = adata[:, adata.var["token_id"] >= 0]
     gene_token_ids = np.array(adata.var["token_id"])
 
@@ -183,6 +198,7 @@ def expression_data_generator(adata_path, extended_vocab, cell_line_map):
 
 
 # ── Step 3: Build metadata tables ──────────────────────────────────────────
+
 
 def build_drug_metadata(adata_path):
     """Extract unique drug metadata from adata obs."""
@@ -235,6 +251,7 @@ def build_summary_statistics(growth_rate_path, cell_line_map):
 
 # ── Main ────────────────────────────────────────────────────────────────────
 
+
 def main():
     os.makedirs(OUTPUT_ROOT, exist_ok=True)
 
@@ -246,7 +263,10 @@ def main():
     # ── Extended vocabulary ──────────────────────────────────────────────
     log.info("Building extended vocabulary...")
     adata_tmp = sc.read_h5ad(ADATA_PATH, backed="r")
-    extended_vocab, gene_metadata_rows = build_extended_vocab(adata_tmp.var, VOCAB_JSON_PATH)
+    extended_vocab, gene_metadata_rows = build_extended_vocab(
+        adata_tmp.var,
+        VOCAB_JSON_PATH,
+    )
     del adata_tmp
     gc.collect()
 
