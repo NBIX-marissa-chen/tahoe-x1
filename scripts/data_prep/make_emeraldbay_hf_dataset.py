@@ -39,8 +39,6 @@ CELL_LINE_MAPPING_PATH = "/home/shreshth/Barotaxis2/vector_diffusion/scripts/dat
 VOCAB_JSON_PATH = "/tmp/vevo_v2_vocab.json"
 OUTPUT_ROOT = "/nvme-shared/Data/EmeraldBay_HF"
 
-SPLIT_SEED = 42
-SPLIT_TEST_SIZE = 0.01
 
 
 # ── Step 1: Build extended vocabulary ───────────────────────────────────────
@@ -310,24 +308,13 @@ def main():
     )
     log.info(f"expression_data generated: {len(expr_ds)} rows")
 
-    # Train/valid split
-    log.info("Splitting into train/valid...")
-    split = expr_ds.train_test_split(
-        test_size=SPLIT_TEST_SIZE,
-        seed=SPLIT_SEED,
-        shuffle=True,
-    )
+    # Save as single "train" split (no train/valid split)
     train_path = os.path.join(OUTPUT_ROOT, "expression_data", "train")
-    valid_path = os.path.join(OUTPUT_ROOT, "expression_data", "valid")
     os.makedirs(train_path, exist_ok=True)
-    os.makedirs(valid_path, exist_ok=True)
+    expr_ds.save_to_disk(train_path)
+    log.info(f"expression_data train: {len(expr_ds)} rows -> {train_path}")
 
-    split["train"].save_to_disk(train_path)
-    log.info(f"expression_data train: {len(split['train'])} rows -> {train_path}")
-    split["test"].save_to_disk(valid_path)
-    log.info(f"expression_data valid: {len(split['test'])} rows -> {valid_path}")
-
-    del expr_ds, split
+    del expr_ds
     gc.collect()
     log.info("Done! All datasets saved to %s", OUTPUT_ROOT)
 
